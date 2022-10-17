@@ -1,5 +1,6 @@
 import csv
 import os
+import requests
 
 ###############################################################################
 # Najprej definirajmo nekaj pomožnih orodij za pridobivanje podatkov s spleta.
@@ -8,11 +9,11 @@ import os
 # definirajte URL glavne strani bolhe za oglase z mačkami
 cats_frontpage_url = 'http://www.bolha.com/zivali/male-zivali/macke/'
 # mapa, v katero bomo shranili podatke
-cat_directory = 'TODO'
+cat_directory = 'programiranje-13/02-zajem-podatkov/vaje/macke'
 # ime datoteke v katero bomo shranili glavno stran
-frontpage_filename = 'TODO'
+frontpage_filename = 'index.html'
 # ime CSV datoteke v katero bomo shranili podatke
-csv_filename = 'TODO'
+csv_filename = 'podatki.csv'
 
 
 def download_url_to_string(url):
@@ -21,13 +22,14 @@ def download_url_to_string(url):
     """
     try:
         # del kode, ki morda sproži napako
-        page_content = 'TODO'
-    except 'TODO':
+        page_content = requests.get(url)
+    except Exception as e:
         # koda, ki se izvede pri napaki
         # dovolj je če izpišemo opozorilo in prekinemo izvajanje funkcije
-        raise NotImplementedError()
+        print(f"NAPAKA PRI PRENOSU: {url} ::", e)
+        return None
     # nadaljujemo s kodo če ni prišlo do napake
-    raise NotImplementedError()
+    return page_content.text
 
 
 def save_string_to_file(text, directory, filename):
@@ -35,8 +37,10 @@ def save_string_to_file(text, directory, filename):
     locirano v "directory"/"filename", ali povozi obstoječo. V primeru, da je
     niz "directory" prazen datoteko ustvari v trenutni mapi.
     """
+    
     os.makedirs(directory, exist_ok=True)
     path = os.path.join(directory, filename)
+    #ker je na računalnikih označevanje poti različno lahko tako naredimo da bo vedno primerno združeno
     with open(path, 'w', encoding='utf-8') as file_out:
         file_out.write(text)
     return None
@@ -48,7 +52,8 @@ def save_string_to_file(text, directory, filename):
 def save_frontpage(page, directory, filename):
     """Funkcija shrani vsebino spletne strani na naslovu "page" v datoteko
     "directory"/"filename"."""
-    raise NotImplementedError()
+    text = download_url_to_string(page)
+    save_string_to_file(text, directory, filename)
 
 
 ###############################################################################
@@ -58,8 +63,9 @@ def save_frontpage(page, directory, filename):
 
 def read_file_to_string(directory, filename):
     """Funkcija vrne celotno vsebino datoteke "directory"/"filename" kot niz."""
-    raise NotImplementedError()
-
+    path = os.path.join(directory, filename)
+    with open(path, encoding='utf-8') as datoteka:
+        return datoteka.read()
 
 # Definirajte funkcijo, ki sprejme niz, ki predstavlja vsebino spletne strani,
 # in ga razdeli na dele, kjer vsak del predstavlja en oglas. To storite s
@@ -70,7 +76,16 @@ def read_file_to_string(directory, filename):
 def page_to_ads(page_content):
     """Funkcija poišče posamezne oglase, ki se nahajajo v spletni strani in
     vrne seznam oglasov."""
-    raise NotImplementedError()
+
+
+
+
+
+
+    oglasi = []
+    for oglas in page_content.finditer(r"<li class=\"EntityList-item EntityList-item.*?</li>"):
+        oglasi.append(oglas)
+    return oglasi
 
 
 # Definirajte funkcijo, ki sprejme niz, ki predstavlja oglas, in izlušči
@@ -141,7 +156,15 @@ def main(redownload=True, reparse=True):
     """
     # Najprej v lokalno datoteko shranimo glavno stran
 
+    page_str = download_url_to_string(cats_frontpage_url)
+    save_string_to_file(page_str, cat_directory, frontpage_filename)
+
     # Iz lokalne (html) datoteke preberemo podatke
+
+    vzorec = "<li class=\"EntityList-item EntityList-item.*?</li>"
+    import re
+    data = re.findall(vzorec, page_str, re.DOTALL | re.IGNORECASE )
+    print(len(data))
 
     # Podatke preberemo v lepšo obliko (seznam slovarjev)
 
@@ -151,7 +174,6 @@ def main(redownload=True, reparse=True):
     # celotna spletna stran ob vsakem zagon prenese (četudi že obstaja)
     # in enako za pretvorbo
 
-    raise NotImplementedError()
 
 
 if __name__ == '__main__':
