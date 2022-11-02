@@ -1,6 +1,7 @@
 import csv
 import os
 import requests
+import re
 
 ###############################################################################
 # Najprej definirajmo nekaj pomožnih orodij za pridobivanje podatkov s spleta.
@@ -77,15 +78,11 @@ def page_to_ads(page_content):
     """Funkcija poišče posamezne oglase, ki se nahajajo v spletni strani in
     vrne seznam oglasov."""
 
-
-
-
-
-
-    oglasi = []
-    for oglas in page_content.finditer(r"<li class=\"EntityList-item EntityList-item.*?</li>"):
-        oglasi.append(oglas)
-    return oglasi
+    rx = re.compile(r'<li class="EntityList-item EntityList-item--Regular'
+                    r'(.*?)</article>',
+                    re.DOTALL)
+    ads = re.findall(rx, page_content)
+    return ads
 
 
 # Definirajte funkcijo, ki sprejme niz, ki predstavlja oglas, in izlušči
@@ -95,7 +92,22 @@ def page_to_ads(page_content):
 def get_dict_from_ad_block(block):
     """Funkcija iz niza za posamezen oglasni blok izlušči podatke o imenu, ceni
     in opisu ter vrne slovar, ki vsebuje ustrezne podatke."""
-    raise NotImplementedError()
+    rx = re.compile(r'<h3.*>(?P<name>.*?)</a></h3>'
+                    r'.*?"pubdate">(?P<time>.*?)</time>'
+                    r'.*?<strong class="price price--hrk">\s*(?P<price>.*?)(&|\s</strong>)',
+                    re.DOTALL)
+    data = re.search(rx, block)
+    ad_dict = data.groupdict()
+
+    # Ker nimajo vsi oglasi podatka o lokaciji, to rešimo z dodatnim vzorcem
+    rloc = re.compile(r'Lokacija: </span>(?P<location>.*?)<br />')
+    locdata = re.search(rloc, block)
+    if locdata is not None:
+        ad_dict['location'] = locdata.group('location')
+    else:
+        ad_dict['location'] = 'Unknown'
+
+    return ad_dict
 
 
 # Definirajte funkcijo, ki sprejme ime in lokacijo datoteke, ki vsebuje
@@ -106,13 +118,16 @@ def get_dict_from_ad_block(block):
 def ads_from_file(filename, directory):
     """Funkcija prebere podatke v datoteki "directory"/"filename" in jih
     pretvori (razčleni) v pripadajoč seznam slovarjev za vsak oglas posebej."""
-    raise NotImplementedError()
-
+    stran = read_file_to_string(filename, directory)
+    oddelki = page_to_ads(stran)
+    oglasi = []
+    for oddelek in oddelki:
+        oglasi.append(get_dict_from_ad_block(oddelek))
+    raise oglasi
 
 ###############################################################################
 # Obdelane podatke želimo sedaj shraniti.
 ###############################################################################
-
 
 def write_csv(fieldnames, rows, directory, filename):
     """
@@ -126,7 +141,7 @@ def write_csv(fieldnames, rows, directory, filename):
         writer.writeheader()
         for row in rows:
             writer.writerow(row)
-    return
+    return None
 
 
 # Definirajte funkcijo, ki sprejme neprazen seznam slovarjev, ki predstavljajo
@@ -143,7 +158,7 @@ def write_cat_ads_to_csv(ads, directory, filename):
     # Prednost je v tem, da ga lahko pod določenimi pogoji izklopimo v
     # produkcijskem okolju
     assert ads and (all(j.keys() == ads[0].keys() for j in ads))
-    raise NotImplementedError()
+    write_csv(ads[0].keys(), ads, directory, filename)
 
 
 # Celoten program poženemo v glavni funkciji
@@ -156,20 +171,19 @@ def main(redownload=True, reparse=True):
     """
     # Najprej v lokalno datoteko shranimo glavno stran
 
-    page_str = download_url_to_string(cats_frontpage_url)
-    save_string_to_file(page_str, cat_directory, frontpage_filename)
+    save_frontpage(cat_directory, frontpage_filename)  
 
     # Iz lokalne (html) datoteke preberemo podatke
-
-    vzorec = "<li class=\"EntityList-item EntityList-item.*?</li>"
-    import re
-    data = re.findall(vzorec, page_str, re.DOTALL | re.IGNORECASE )
-    print(len(data))
+    ads = page_to_ads(read_file_to_string(cat_directory, frontpage_filename))
 
     # Podatke preberemo v lepšo obliko (seznam slovarjev)
 
+    ads_nice = [get_dict_from_ad_block(ad) for ad in ads]
+
     # Podatke shranimo v csv datoteko
 
+    write_cat_ads_to_csv(ads_nice, cat_directory, csv_filename)
+    
     # Dodatno: S pomočjo parametrov funkcije main omogoči nadzor, ali se
     # celotna spletna stran ob vsakem zagon prenese (četudi že obstaja)
     # in enako za pretvorbo
