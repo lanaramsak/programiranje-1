@@ -192,5 +192,3 @@ let rec second_largest seznam =
     | x :: xs -> max x (najvecja xs)
   in
   najvecja (remove (najvecja seznam) seznam)
-
-vaje
